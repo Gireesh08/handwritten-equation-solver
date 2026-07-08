@@ -7,6 +7,19 @@ from tensorflow.keras.models import load_model
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 
+# custom styling
+st.markdown("""
+    <style>
+    .stApp {
+        background-color: #f0f2f6;
+    }
+    canvas {
+        border: 2px solid #cccccc;
+        border-radius: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # loading the trained CNN model
 model = load_model('handwritten_equation_solver.h5')
 
@@ -19,7 +32,7 @@ with open('class_names.json', 'r') as f:
     class_names = json.load(f)
 
 # app title
-st.title("Handwritten Equation Solver 🖊️")
+st.title("✏️ Handwritten Equation Solver")
 st.markdown("---")
 
 # instructions panel
@@ -44,7 +57,6 @@ st.info("""
 st.markdown("---")
 st.subheader("🎨 Draw your equation below!")
 
-
 canvas_result = st_canvas(
     fill_color = "black",
     stroke_width = 15,
@@ -56,8 +68,16 @@ canvas_result = st_canvas(
     key = "canvas"
 )
 
+# clear and predict buttons side by side
+col1, col2 = st.columns([1, 5])
+with col1:
+    if st.button("🗑️ Clear"):
+        st.rerun()
+with col2:
+    predict_button = st.button("🔮 Predict")
+
 ## Adding the Prediction Button
-if st.button("Predict"):
+if predict_button:
     if canvas_result.image_data is not None:
         img = canvas_result.image_data
         img = img.astype('uint8')
@@ -181,4 +201,4 @@ if st.button("Predict"):
             st.error("❌ Could not solve equation! Try drawing more clearly!")
 
     else:
-        st.warning("Please draw something first!")
+        st.warning("⚠️ Please draw something first!")
