@@ -7,16 +7,79 @@ from tensorflow.keras.models import load_model
 from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 
-# custom styling
+# Apple-style UI
 st.markdown("""
     <style>
+    /* Main background */
     .stApp {
-        background-color: #f0f2f6;
+        background-color: #f5f5f7;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
-    canvas {
-        border: 2px solid #cccccc;
-        border-radius: 10px;
+    
+    /* Title styling */
+    h1 {
+        color: #1d1d1f !important;
+        font-weight: 700 !important;
+        font-size: 2.5rem !important;
     }
+    
+    /* Subheader styling */
+    h3 {
+        color: #1d1d1f !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Info box styling */
+    .stAlert {
+        background-color: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid #d2d2d7 !important;
+        color: #1d1d1f !important;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #0071e3 !important;
+        color: white !important;
+        border-radius: 20px !important;
+        border: none !important;
+        padding: 8px 24px !important;
+        font-size: 16px !important;
+        font-weight: 500 !important;
+        width: 100% !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: #0077ed !important;
+    }
+
+    /* Success message */
+    .stSuccess {
+        background-color: #ffffff !important;
+        border-radius: 12px !important;
+        color: #1d1d1f !important;
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* Warning message */
+    .stWarning {
+        border-radius: 12px !important;
+    }
+
+    /* Error message */
+    .stError {
+        border-radius: 12px !important;
+    }
+
+    /* Divider */
+    hr {
+        border-color: #d2d2d7 !important;
+    }
+
+    /* Hide streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -33,6 +96,7 @@ with open('class_names.json', 'r') as f:
 
 # app title
 st.title("✏️ Handwritten Equation Solver")
+st.markdown("Drawn equations solved instantly using AI!")
 st.markdown("---")
 
 # instructions panel
@@ -57,26 +121,30 @@ st.info("""
 st.markdown("---")
 st.subheader("🎨 Draw your equation below!")
 
+# canvas width matches container
 canvas_result = st_canvas(
     fill_color = "black",
     stroke_width = 15,
     stroke_color = "white",
-    background_color = "black",
+    background_color = "#1d1d1f",
     height = 200,
-    width = 600,
+    width = 700,
     drawing_mode = "freedraw",
     key = "canvas"
 )
 
-# clear and predict buttons side by side
-col1, col2 = st.columns([1, 5])
+st.markdown("<br>", unsafe_allow_html=True)
+
+# buttons
+col1, col2 = st.columns([1, 1])
 with col1:
     if st.button("🗑️ Clear"):
         st.rerun()
 with col2:
-    predict_button = st.button("🔮 Predict")
+    predict_button = st.button("🔮 Predict Equation")
 
-## Adding the Prediction Button
+st.markdown("<br>", unsafe_allow_html=True)
+
 if predict_button:
     if canvas_result.image_data is not None:
         img = canvas_result.image_data
@@ -85,25 +153,25 @@ if predict_button:
         # convert to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
 
-        # original gray → for contour detection (white on black!)
+        # original gray → for contour detection
         _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY)
 
-        # inverted gray → for model prediction (black on white!)
+        # inverted gray → for model prediction
         gray_inverted = cv2.bitwise_not(gray)
 
-        ## find contours from ORIGINAL gray
+        # find contours
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        ## get ALL bounding boxes without filtering
+        # get all bounding boxes
         all_boxes = []
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
             all_boxes.append((x, y, w, h))
 
-        # sort all boxes left to right
+        # sort left to right
         all_boxes = sorted(all_boxes, key=lambda b: b[0])
 
-        # merge nearby contours that belong together (like ÷)
+        # merge nearby contours
         boxes = []
         skip_indices = []
 
@@ -120,11 +188,9 @@ if predict_button:
                 if i == j or j in skip_indices:
                     continue
 
-                # check if boxes are close horizontally
                 horizontal_gap = abs(x1 - x2)
 
                 if horizontal_gap < 50:
-                    # merge these boxes!
                     merged_x = min(merged_x, x2)
                     merged_y = min(merged_y, y2)
                     merged_w = max(merged_x + merged_w, x2 + w2) - merged_x
@@ -133,18 +199,17 @@ if predict_button:
 
             boxes.append((merged_x, merged_y, merged_w, merged_h))
 
-        # sort final boxes left to right
+        # sort final boxes
         boxes = sorted(boxes, key=lambda b: b[0])
 
-        # store all predictions
+        # store predictions
         predicted_symbols = []
 
         for i, (x, y, w, h) in enumerate(boxes):
 
-            # crop from INVERTED image (black on white = matches training!)
             char_img = gray_inverted[y:y+h, x:x+w]
 
-            # make it SQUARE first!
+            # make square
             size = max(w, h)
             square = np.ones((size, size), dtype=np.uint8) * 255
             x_offset = (size - w) // 2
@@ -160,21 +225,15 @@ if predict_button:
                 value=255
             )
 
-            # resize to 32×32
+            # resize normalize reshape
             char_img = cv2.resize(char_img, (32, 32))
-
-            # normalize
             char_img = char_img / 255.0
-
-            # reshape for model
             char_img = char_img.reshape(1, 32, 32, 1)
 
             # predict
             prediction = model.predict(char_img)
             predicted_index = np.argmax(prediction)
             predicted_label = le.inverse_transform([predicted_index])[0]
-
-            # store prediction
             predicted_symbols.append(predicted_label)
 
         # symbol map
@@ -185,7 +244,7 @@ if predict_button:
             'div' : '/'
         }
 
-        # build equation string
+        # build equation
         equation = ''
         for symbol in predicted_symbols:
             if symbol in symbol_map:
@@ -196,9 +255,9 @@ if predict_button:
         # solve equation
         try:
             result = eval(equation)
-            st.success(f"✅ {equation} = {result}")
+            st.success(f"✅   {equation} = {result}")
         except:
-            st.error("❌ Could not solve equation! Try drawing more clearly!")
+            st.error("❌ Could not solve! Try drawing more clearly!")
 
     else:
         st.warning("⚠️ Please draw something first!")
