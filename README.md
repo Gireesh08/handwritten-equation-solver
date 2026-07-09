@@ -28,8 +28,8 @@ A deep learning project that recognizes handwritten math equations and solves th
 pip install -r requirements.txt
 streamlit run app.py
 
-"## 📸 Live Demo
-👉 Try it here → https://huggingface.co/spaces/Gireesh08/handwritten-equation-solver"
+## 📸 Live Demo
+👉 Try it here → https://huggingface.co/spaces/Gireesh08/handwritten-equation-solver
 
 ## 👨‍💻 Author
 Gireesh Adireddi
